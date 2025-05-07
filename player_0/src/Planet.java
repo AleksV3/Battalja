@@ -3,9 +3,9 @@ public class Planet {
     //P <int> <int> <int> <float> <int> <string>
     //- Planet: Name (number), position x, position y,
     //planet size, army size, planet color (blue, cyan, green, yellow or null for neutral)
-    //lastnosti
+
     public String name;
-    public int x;//pozicija
+    public int x;
     public int y;
     public float planetSize;
     public int fleetSize;

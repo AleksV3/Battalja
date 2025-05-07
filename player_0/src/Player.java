@@ -10,12 +10,12 @@ public class Player {
     public static int universeHeight;
     public static String myColor;
     public static ArrayList<String> otherPlayersPlanets = new ArrayList<>();
-    public static ArrayList<String> myTemmatePlanets = new ArrayList<>();
+    public static ArrayList<String> myTeammatePlanets = new ArrayList<>();
     public static ArrayList<String> myPlanets = new ArrayList<>();
 
     public static void main(String[] args) throws IOException {
         BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
-
+        int turnCounter = 0;
         // Wait for initial /U line to set up universe and player color
         String line;
         while (!(line = stdin.readLine()).startsWith("/U")) {}
@@ -30,8 +30,11 @@ public class Player {
         // Main game loop
         while (true) {
             getGameState(stdin);
+            commandCenter.incrementTurn();
 
-            String attack = commandCenter.attack();
+
+            String attack = commandCenter.defence();
+            attack += commandCenter.attack();
             System.out.println(attack);
             System.out.println("/M Hello");
 
@@ -46,7 +49,7 @@ public class Player {
     public static void getGameState(BufferedReader stdin) throws IOException {
         // Clear lists
         myPlanets.clear();
-        myTemmatePlanets.clear();
+        myTeammatePlanets.clear();
         otherPlayersPlanets.clear();
 
         // Reset CommandCenter internal lists
