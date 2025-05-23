@@ -26,15 +26,14 @@ public class Player {
 
         // Initialize command center once
         commandCenter = new CommandCenter(universeWidth, universeHeight, myColor);
+        int turn = 0;
 
         // Main game loop
         while (true) {
             getGameState(stdin);
-            commandCenter.incrementTurn();
-
-
-            String attack = commandCenter.defence();
-            attack += commandCenter.attack();
+            turn++;
+            //String attack = commandCenter.defence();
+            String attack = commandCenter.attack(turn);
             System.out.println(attack);
             System.out.println("/M Hello");
 
