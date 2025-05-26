@@ -15,7 +15,6 @@ public class Player {
 
     public static void main(String[] args) throws IOException {
         BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
-        int turnCounter = 0;
         // Wait for initial /U line to set up universe and player color
         String line;
         while (!(line = stdin.readLine()).startsWith("/U")) {}
