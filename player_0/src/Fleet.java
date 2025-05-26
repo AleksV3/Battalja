@@ -9,8 +9,8 @@ public class Fleet {
 
     public int name;
     public int size;
-    public int attackingPlanet;
-    public int defendingPlanet;
+    public String attackingPlanet;
+    public String defendingPlanet;
     public int turn;
     public int numberOfTurns;
     public String color;
@@ -18,8 +18,8 @@ public class Fleet {
 
         this.name = Integer.parseInt(t[1]);
         this.size = Integer.parseInt(t[2]);
-        this.attackingPlanet = Integer.parseInt(t[3]);
-        this.defendingPlanet = Integer.parseInt(t[4]);
+        this.attackingPlanet = t[3];
+        this.defendingPlanet = t[4];
         this.turn = Integer.parseInt(t[5]);
         this.numberOfTurns = Integer.parseInt(t[6]);
         this.color = t[7];
@@ -33,11 +33,11 @@ public class Fleet {
         return size;
     }
 
-    public int getAttackingPlanet() {
+    public String  getAttackingPlanet() {
         return attackingPlanet;
     }
 
-    public int getDefendingPlanet() {
+    public String  getDefendingPlanet() {
         return defendingPlanet;
     }
 
