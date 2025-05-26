@@ -35,7 +35,6 @@ public class Cluster {
             List<Point> neighbors = regionQuery(points, p, eps);
 
             if (neighbors.size() < minPts) {
-                // noise - ignored
             } else {
                 List<Point> cluster = new ArrayList<>();
                 expandCluster(p, neighbors, cluster, visited, points, eps, minPts);

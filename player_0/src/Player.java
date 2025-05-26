@@ -5,7 +5,7 @@ import java.util.ArrayList;
 
 public class Player {
 
-    public static CommandCenter commandCenter;
+    public static SetUp setUp;
     public static int universeWidth;
     public static int universeHeight;
     public static String myColor;
@@ -24,7 +24,7 @@ public class Player {
         myColor = tokens[3];
 
         // Initialize command center once
-        commandCenter = new CommandCenter(universeWidth, universeHeight, myColor);
+        setUp = new SetUp(universeWidth, universeHeight, myColor);
         int turn = 0;
 
         // Main game loop
@@ -32,7 +32,7 @@ public class Player {
             getGameState(stdin);
             turn++;
             //String attack = commandCenter.defence();
-            String attack = commandCenter.attack(turn);
+            String attack = setUp.attack(turn);
             System.out.println(attack);
             System.out.println("/M Hello");
 
@@ -51,7 +51,7 @@ public class Player {
         otherPlayersPlanets.clear();
 
         // Reset CommandCenter internal lists
-        commandCenter.resetState();
+        setUp.resetState();
 
         String line;
         while (!(line = stdin.readLine()).equals("/S")) {
@@ -60,10 +60,10 @@ public class Player {
 
             switch (command) {
                 case 'P':
-                    commandCenter.addPlanet(tokens);
+                    setUp.addPlanet(tokens);
                     break;
                 case 'F':
-                    commandCenter.addFleets(tokens);
+                    setUp.addFleets(tokens);
                     break;
             }
         }

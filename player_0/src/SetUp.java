@@ -1,6 +1,6 @@
 import java.util.ArrayList;
 
-public class CommandCenter {
+public class SetUp {
     //lastnosti
     public int x;
     public int y;
@@ -15,7 +15,7 @@ public class CommandCenter {
     ArrayList<Fleet> enemyFleets;
     ArrayList<Fleet> myTemmateFleets;
 
-    public CommandCenter(int x, int y, String color) {
+    public SetUp(int x, int y, String color) {
         this.x = x;
         this.y = y;
         this.myColor = color;

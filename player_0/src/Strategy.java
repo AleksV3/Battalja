@@ -44,14 +44,15 @@ public class Strategy {
     public String executeStrategy(int turn) {
         this.turn = turn;
         classifyPlanets();
-        //find 2 biggest clusters (1 team other enemy cluster)
         cluster = new Cluster(myPlanets,enemyPlanets,teammatesPlanets,neutralPlanets,x,y);
         clusters = cluster.findTop2ClustersDBSCAN(4,2);
 
         int stage = determineGameStage(turn);
         StringBuilder commands = new StringBuilder();
         commands.append(defendUnderAttack());
-
+        if(!teammatesPlanets.isEmpty()) {
+            commands.append(defendTeammate());
+        }
         switch (stage) {
             case 0:
                 commands.append(earlyGameExpansion());
@@ -98,6 +99,7 @@ public class Strategy {
         }
         return closest;
     }
+
     private boolean isTeammateClosestToCluster() {
         int closestDistanceMe = Integer.MAX_VALUE;
         for (List<Point> cluster: clusters) {
@@ -122,7 +124,8 @@ public class Strategy {
         }
         return false;
     }
-        private List<Point> findClosestCluster() {
+
+    private List<Point> findClosestCluster() {
         List<Point> closestCluster = new ArrayList<>();
         int closestDistance = Integer.MAX_VALUE;
         for (List<Point> cluster: clusters) {
@@ -167,25 +170,22 @@ public class Strategy {
     private String earlyGameExpansion() {
         StringBuilder cmd = new StringBuilder();
 
-        // Find the closest cluster and its planets
         List<Point> closestCluster = findClosestCluster();
         List<Planet> clusterPlanets = cluster.planetsInTheCluster(closestCluster);
 
-        // Remove planets we already own from that cluster
         List<Planet> targetPlanetsInCluster = clusterPlanets.stream()
                 .filter(p -> !myPlanets.contains(p))
                 .sorted(Comparator.comparingInt(Planet::getFleetSize)) // go for easier ones
                 .toList();
 
         for (Planet src : myPlanets) {
-            if (myPlanets.size() > 2) {
-                if (src.getPlanetSize() >= 8 || src.isUnderAttack()
+            if (myPlanets.size() > 3) {
+                if ((src.getPlanetSize() >= 8) || src.isUnderAttack()
                         || src.isAttacking()) continue;
             }
 
             Planet target = null;
 
-            // Try to pick from the cluster
             for (Planet potential : targetPlanetsInCluster) {
                 if (isCloserThanTeammate(src, potential) &&
                         !weAreWinningBattleFor(potential) &&
@@ -196,7 +196,6 @@ public class Strategy {
                 }
             }
 
-            // If cluster is already mine or no good targets, fall back
             if (target == null) {
                 target = Stream.concat(neutralPlanets.stream(), enemyPlanets.stream())
                         .filter(p -> isCloserThanTeammate(src, p))
@@ -205,7 +204,6 @@ public class Strategy {
                         .orElse(null);
             }
 
-            // Attack logic
             if (target != null) {
                 int required = target.getFleetSize() + 1;
                 int maxSend = optimalFleetSize(src);
@@ -220,13 +218,21 @@ public class Strategy {
         return cmd.toString();
     }
 
-
     private String midGameStrategy() {
         StringBuilder cmd = new StringBuilder();
         cmd.append(feedPlanets());
+        ArrayList <Planet> enemySmallPlanets = new ArrayList<>();
+        ArrayList <Planet> enemyBigPlanets = new ArrayList<>();
+        for(Planet src : myPlanets) {
+            if(src.getPlanetSize() >= 8){
+                enemyBigPlanets.add(src);
+            }else{
+                enemySmallPlanets.add(src);
+            }
+        }
         for (Planet src : myPlanets) {
-            if (src.getPlanetSize() >= 8 || src.isUnderAttack() ||src.isAttacking() ) continue;
-            Planet target = Stream.concat(neutralPlanets.stream(), enemyPlanets.stream())
+            if (!shouldSendFleet(src) || src.isUnderAttack() ||src.isAttacking() ) continue;
+            Planet target = Stream.concat(neutralPlanets.stream(), enemySmallPlanets.stream())
                     .filter(p -> !weAreWinningBattleFor(p))
                     .max(Comparator.comparingDouble(p -> fleetGrowthRate(p) / (getDistance(src, p) + p.getFleetSize() + 5)))
                     .orElse(null);
@@ -234,8 +240,11 @@ public class Strategy {
             if (target != null) {
                 int required = target.getFleetSize() + 1;
                 int maxSend = optimalFleetSize(src);
-                if(required < maxSend) continue;
-                if (canAffordToSend(src, required)  && maxSend != 0) {
+                if(required <= maxSend) continue;
+                if (canAffordToSend(src, required) && maxSend != 0) {
+                    cmd.append(src.attackPlanet(target, required));
+                }else {
+                    required = required/4;
                     cmd.append(src.attackPlanet(target, required));
                 }
             }
@@ -285,7 +294,12 @@ public class Strategy {
             }
         }
         for (Planet src : smallPlanets) {
-            Planet feedTarget = getClosestPlanet(src,bigPlanets);
+            Planet feedTarget = null;
+            if(!bigPlanets.isEmpty()) {
+                feedTarget = getClosestPlanet(src,bigPlanets);
+            }else{
+                feedTarget = getClosestPlanet(src,midPlanets);
+            }
             int amount = optimalFleetSize(src);
             if (feedTarget != null && !src.isAttacking() && !src.isUnderAttack()) {
                     if(amount == 0){
@@ -304,15 +318,18 @@ public class Strategy {
         double minDistance = Double.MAX_VALUE;
 
         for (Planet p : planets) {
-            double distance = getDistance(p, planet);
-            if (distance < minDistance) {
-                minDistance = distance;
-                closest = p;
+            if(!planet.equals(p)) {
+                double distance = getDistance(p, planet);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closest = p;
+                }
             }
         }
 
         return closest;
     }
+
     private String defendUnderAttack() {
         StringBuilder cmd = new StringBuilder();
         for (Planet underAttack : myPlanets) {
@@ -320,11 +337,14 @@ public class Strategy {
             if (incoming > 0 && underAttack.getFleetSize() <= incoming) {
                 underAttack.setUnderAttack(true);
                 int needed = incoming - underAttack.getFleetSize();
+
                 Planet defender = myPlanets.stream()
                         .filter(p -> p != underAttack && p.getFleetSize() > needed + MIN_DEFENSE)
-                        .min(Comparator.comparingDouble(p -> getDistance(p, underAttack)))
+                        .filter(p -> !willTeammateDefend(underAttack, needed))
+                        .min(Comparator.comparingDouble(p -> getDistance(p, underAttack) - 0.1 * p.getPlanetSize()))
                         .orElse(null);
-                if (defender != null && defender != underAttack) {
+
+                if (defender != null) {
                     cmd.append(defender.attackPlanet(underAttack, needed));
                     defender.setAttacking(true);
                 }
@@ -332,9 +352,42 @@ public class Strategy {
         }
         return cmd.toString();
     }
-    private boolean isEnemy(Planet p) {
-        return enemyPlanets.contains(p);
+
+    private String defendTeammate() {
+        StringBuilder cmd = new StringBuilder();
+        for (Planet teammate : teammatesPlanets) {
+            int incoming = getIncomingEnemyFleet(teammate);
+            teammate.setUnderAttack(true);
+            if (incoming > 0 && teammate.getFleetSize() <= incoming) {
+                int needed = incoming - teammate.getFleetSize();
+
+                Planet defender = myPlanets.stream()
+                        .filter(p ->!p.isAttacking() && !p.isUnderAttack() &&
+                                p.getFleetSize() > needed + MIN_DEFENSE)
+                        .filter(p -> !willTeammateDefend(teammate, needed))
+                        .min(Comparator.comparingDouble(p -> getDistance(p, teammate) - 0.1 * p.getPlanetSize()))
+                        .orElse(null);
+
+                if (defender != null) {
+                    cmd.append(defender.attackPlanet(teammate, needed));
+                    defender.setAttacking(true);
+                }
+            }
+        }
+        return cmd.toString();
     }
+    private boolean willTeammateDefend(Planet underAttack, int defend) {
+        Planet teammate = getClosestPlanet(underAttack, teammatesPlanets);
+        Planet myClosest = getClosestPlanet(underAttack, myPlanets);
+
+        double teammateDis = getDistance(underAttack, teammate);
+        double myDis = getDistance(underAttack, myClosest);
+
+        boolean teammateIsCloser = teammateDis < myDis * 0.95;
+
+        return teammateIsCloser && canAffordToSend(teammate, defend);
+    }
+
     private boolean weAreWinningBattleFor(Planet planet) {
         return getIncomingEnemyFleet(planet) * 0.8 < getIncomingAllyFleet(planet);
     }
@@ -343,7 +396,7 @@ public class Strategy {
         double myDist = getDistance(myPlanet, target);
         int stage = determineGameStage(turn);
         double teamDist = teammatesPlanets.stream()
-                .filter(p -> stage == 2 || p.getPlanetSize() >= 8) // Only include small planets if it's late game
+                .filter(p -> stage == 2 || p.getPlanetSize() >= 8)
                 .mapToDouble(p -> getDistance(p, target))
                 .min()
                 .orElse(Double.MAX_VALUE);
@@ -355,7 +408,8 @@ public class Strategy {
     }
 
     private boolean canAffordToSend(Planet planet, int amount) {
-        return planet.getFleetSize() - amount >= MIN_DEFENSE && !willBeUnderAttack(planet, amount);
+        return planet.getFleetSize() - amount >= MIN_DEFENSE &&
+                !willBeUnderAttack(planet, amount);
     }
 
     private int optimalFleetSize(Planet planet) {
@@ -366,6 +420,9 @@ public class Strategy {
             case 2 -> 0.40f;
             default -> 0.10f;
         };
+        if(!shouldSendFleet(planet)){
+            return 0;
+        }
         int fleetsToSend = (int) Math.floor(fleetGrowthRate(planet) * percent);
         int F = planet.getFleetSize() - fleetsToSend;
         double size = planet.getPlanetSize();
@@ -376,6 +433,19 @@ public class Strategy {
             return fleetsToSend;
         }
         return 0;
+    }
+
+    public boolean shouldSendFleet(Planet planet) {
+        double fMax = getFMax(planet);
+        int size = planet.getFleetSize();
+        double numShips = planet.getFleetSize();
+
+        double sendThreshold;
+        if (size <= 3) sendThreshold = 0.4;
+        else if (size <= 6) sendThreshold = 0.65;
+        else sendThreshold = 0.85;
+
+        return numShips >= sendThreshold * fMax;
     }
 
     private double fleetGrowthRate(Planet p) {
